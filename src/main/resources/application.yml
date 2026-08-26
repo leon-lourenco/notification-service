@@ -1,0 +1,72 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5435/notification
+    username: notification
+    password: notification
+
+  jpa:
+    hibernate:
+      # Schema is generated from the mapping, including the (invoice_id, stage) unique constraint
+      # the idempotency guarantee depends on. A production deployment of this service would put a
+      # migration tool in front of it; for a locally-run portfolio service that would be ceremony
+      # around a schema nothing else reads.
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Wait for all in-sync replicas before acknowledging. The dispatcher marks an event published
+      # on the strength of this ack, so a weaker setting would let it mark events the broker might
+      # still lose - the dual-write bug again, one layer down.
+      acks: all
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090/realms/card-billing
+
+notification:
+  outbox:
+    poll-interval-ms: 1000
+    batch-size: 50
+  kafka:
+    topic:
+      notification-requested: notification.requested
+    consumer-group: notification-service
+    ack-timeout-seconds: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.cardbilling.notification: INFO

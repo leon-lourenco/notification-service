@@ -59,9 +59,35 @@ alongside implementation, not after.
 ## Running it
 
 ```bash
-docker compose up -d          # Postgres + Redpanda + Keycloak
+docker compose up -d          # Postgres (5435) + Redpanda (9092) + Keycloak (8090)
 ./gradlew bootRun
 ```
+
+Every endpoint then needs a Bearer token from the `card-billing` realm:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8090/realms/card-billing/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=collections-service \
+  -d client_secret=collections-service-secret | jq -r .access_token)
+
+curl -X POST http://localhost:8083/notifications \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"customerId":42,"invoiceId":108,"channel":"EMAIL","stage":"REMINDER_D5","recipient":"maria.silva@example.com"}'
+```
+
+Keycloak is much heavier than the other two containers, and on a constrained machine it can spend
+several minutes starting before it answers anything. Since it has nothing to do with the outbox,
+there is an opt-in profile that drops the token requirement so the loop can be exercised with two
+containers and `curl` alone:
+
+```bash
+docker compose up -d postgres redpanda
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+It is never the default — the resource server is what runs otherwise, and the integration tests
+still assert that an unauthenticated request is rejected.
 
 Swagger UI at `http://localhost:8083/swagger-ui.html`. Watch the console for `[MOCK EMAIL]` /
 `[MOCK SMS]` lines as the outbox dispatcher and consumer drain a request end to end.
@@ -69,3 +95,45 @@ Swagger UI at `http://localhost:8083/swagger-ui.html`. Watch the console for `[M
 ```bash
 ./gradlew test
 ```
+
+The integration tests run real Postgres and real Redpanda via Testcontainers, so Docker has to be
+running. `NotificationOutboxLoopIT` is the one that matters: it drives the whole chain and asserts
+the result in raw SQL rather than through the application's own repositories.
+
+## Verified
+
+A real run against `docker compose up` — Postgres 16 and Redpanda, three requests posted with
+`curl`:
+
+```
+10:43:47.477  RequestNotificationUseCase  Accepted notification 5f9e373e… for invoice 108 at stage
+                                          REMINDER_D5 - outbox event written in the same transaction
+10:43:53.241  OutboxDispatcher            Outbox dispatch pass failed - events stay pending and will
+                                          be retried: Failed to publish outbox event 627a9958… to Kafka
+10:43:55.375  MockNotificationSender      [MOCK EMAIL] To maria.silva@example.com (customer 42):
+                                          invoice #108 is at stage REMINDER_D5
+10:43:55.476  PublishPendingOutboxEvents  Published 1 outbox event(s)
+10:43:56.500  DispatchNotificationUseCase Notification 5f9e373e… was already sent at 13:43:55.375685Z
+                                          - skipping redelivery
+```
+
+That middle line is the whole point, and it was not staged: the first publish attempt hit the five
+second acknowledgement deadline while the topic was still being created. Under the monolith's
+publisher that request was gone — the row said `REQUESTED` and nothing would ever look at it again.
+Here the transaction rolled back, the event stayed pending, the next poll republished it, and the
+duplicate that produced was absorbed by the consumer's already-sent guard.
+
+Final state, after three POSTs of which one was a deliberate repeat:
+
+```
+ invoice_id | channel |       stage       | status | delivered | published
+------------+---------+-------------------+--------+-----------+-----------
+        108 | EMAIL   | REMINDER_D5       | SENT   | t         | t
+        108 | SMS     | FORMAL_NOTICE_D30 | SENT   | t         | t
+
+ notifications | outbox_events | still_pending
+---------------+---------------+---------------
+             2 |             2 |             0
+```
+
+Two rows, not three: the repeated request returned `200` with the existing record and wrote nothing.

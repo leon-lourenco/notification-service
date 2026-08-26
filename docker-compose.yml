@@ -1,0 +1,82 @@
+# Local development infrastructure for notification-service, run alongside `./gradlew bootRun`.
+#
+# Ports are picked to coexist with the rest of this portfolio rather than to be conventional:
+# card-billing-legacy already holds 5433 and another project holds 5432, so Postgres sits on 5435
+# here. Keycloak is on 8090 to stay clear of the 8081-8084 range the four modernization services
+# occupy.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: notification
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Redpanda rather than Kafka + ZooKeeper: same client API, one container, and these are the exact
+  # start flags card-billing-legacy landed on after debugging its own Kafka wiring. Note
+  # --advertise-kafka-addr uses localhost, not the service name: the application runs on the host
+  # via bootRun, so the address the broker hands back to clients has to be resolvable from the host.
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=512M
+      - --overprovisioned
+      - --node-id=0
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://localhost:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  # Stopgap: the card-billing realm is meant to live in the card-billing-shared submodule and be
+  # shared by all four services. Until that repository exists, each service imports its own copy of
+  # the realm so it stays runnable on its own - which ARCHITECTURE.md requires of every service.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7
+    command:
+      - start-dev
+      - --import-realm
+      - --http-port=8090
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      # Without this, Keycloak derives the issuer from each request's Host header, so a token
+      # fetched via 127.0.0.1 carries a different issuer than one fetched via localhost and the
+      # resource server rejects it. Pinning the hostname makes the issuer the same string
+      # everywhere, which is what spring.security.oauth2.resourceserver.jwt.issuer-uri compares to.
+      KC_HOSTNAME: http://localhost:8090
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "false"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q 'UP'"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  postgres-data:

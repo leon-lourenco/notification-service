@@ -1,0 +1,43 @@
+{
+  "realm": "card-billing",
+  "enabled": true,
+  "displayName": "card-billing",
+  "accessTokenLifespan": 900,
+  "sslRequired": "none",
+  "clients": [
+    {
+      "clientId": "notification-service",
+      "name": "notification-service",
+      "description": "This service's own identity, used when it calls another service.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "notification-service-secret",
+      "attributes": {
+        "access.token.lifespan": "900"
+      }
+    },
+    {
+      "clientId": "collections-service",
+      "name": "collections-service",
+      "description": "The caller of POST /notifications. Client credentials, no user involved.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "collections-service-secret",
+      "attributes": {
+        "access.token.lifespan": "900"
+      }
+    }
+  ]
+}

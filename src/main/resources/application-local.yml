@@ -1,0 +1,21 @@
+# Opt-in profile for exercising the outbox loop locally without Keycloak:
+#
+#   docker compose up -d postgres redpanda
+#   ./gradlew bootRun --args='--spring.profiles.active=local'
+#
+# See LocalSecurityConfig for why this exists. The default profile is the real resource server and
+# requires a Bearer token on every business endpoint.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Nothing resolves this under the local profile - no filter chain asks for a token - but
+          # leaving the production issuer here would be misleading about what this profile does.
+          issuer-uri: ""
+
+logging:
+  level:
+    # The point of running under this profile is watching the loop happen, so show the dispatcher's
+    # and consumer's own lines rather than only the summary ones.
+    com.cardbilling.notification: DEBUG
