@@ -55,7 +55,27 @@ class RequestNotificationUseCaseTest {
     }
 
     @Test
-    @DisplayName("repeating a request for the same invoice and stage returns the existing record")
+    @DisplayName("the other channel for an already-requested stage is dispatched, not swallowed")
+    void secondChannelForTheSameStageIsANewNotification() {
+        NotificationRequestResult email =
+                requestNotification.request(
+                        new RequestNotificationCommand(42L, 108L, Channel.EMAIL, Stage.REMINDER_D5, null));
+        NotificationRequestResult sms =
+                requestNotification.request(
+                        new RequestNotificationCommand(42L, 108L, Channel.SMS, Stage.REMINDER_D5, null));
+
+        // The monolith notified a customer on both channels at the same escalation stage. Keying
+        // idempotency on (invoiceId, stage) alone made the SMS look like a retry of the email and
+        // dropped it - silently, since the caller got a cheerful 200 back with the email's record.
+        assertThat(sms.accepted()).isTrue();
+        assertThat(sms.notification().getId()).isNotEqualTo(email.notification().getId());
+        assertThat(store.allNotifications()).hasSize(2);
+        // Two outbox events, so both actually reach the dispatcher.
+        assertThat(store.allOutboxEvents()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("repeating a request for the same invoice, stage and channel returns the existing record")
     void repeatedRequestReturnsExistingRecord() {
         RequestNotificationCommand command =
                 new RequestNotificationCommand(42L, 108L, Channel.EMAIL, Stage.REMINDER_D5, null);

@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /**
  * One in-memory stand-in for all three persistence ports, enforcing the same
- * {@code (invoiceId, stage)} uniqueness the database does.
+ * {@code (invoiceId, stage, channel)} uniqueness the database does.
  *
  * <p>Hand-written rather than mocked because these tests are about how the use cases behave against
  * a store that actually rejects duplicates - a mock told to throw would be asserting the test
@@ -37,9 +37,10 @@ class InMemoryNotificationStore
     }
 
     @Override
-    public Optional<Notification> findByInvoiceIdAndStage(long invoiceId, Notification.Stage stage) {
+    public Optional<Notification> findByInvoiceIdAndStageAndChannel(
+            long invoiceId, Notification.Stage stage, Notification.Channel channel) {
         return notifications.values().stream()
-                .filter(n -> n.getInvoiceId() == invoiceId && n.getStage() == stage)
+                .filter(n -> n.getInvoiceId() == invoiceId && n.getStage() == stage && n.getChannel() == channel)
                 .findFirst();
     }
 
@@ -53,12 +54,12 @@ class InMemoryNotificationStore
     public Notification writeAtomically(Notification notification, OutboxEvent event) {
         if (failNextWriteAsDuplicate) {
             failNextWriteAsDuplicate = false;
-            throw new DuplicateNotificationException(
-                    notification.getInvoiceId(), notification.getStage(), new IllegalStateException("test"));
+            throw duplicateOf(notification);
         }
-        if (findByInvoiceIdAndStage(notification.getInvoiceId(), notification.getStage()).isPresent()) {
-            throw new DuplicateNotificationException(
-                    notification.getInvoiceId(), notification.getStage(), new IllegalStateException("test"));
+        if (findByInvoiceIdAndStageAndChannel(
+                        notification.getInvoiceId(), notification.getStage(), notification.getChannel())
+                .isPresent()) {
+            throw duplicateOf(notification);
         }
         notifications.put(notification.getId(), notification);
         outboxEvents.put(event.getId(), event);
@@ -77,6 +78,14 @@ class InMemoryNotificationStore
     @Override
     public void markPublished(OutboxEvent event) {
         outboxEvents.put(event.getId(), event);
+    }
+
+    private static DuplicateNotificationException duplicateOf(Notification notification) {
+        return new DuplicateNotificationException(
+                notification.getInvoiceId(),
+                notification.getStage(),
+                notification.getChannel(),
+                new IllegalStateException("test"));
     }
 
     void appendOutboxEvent(OutboxEvent event) {

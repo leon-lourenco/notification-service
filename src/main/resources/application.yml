@@ -12,10 +12,14 @@ spring:
 
   jpa:
     hibernate:
-      # Schema is generated from the mapping, including the (invoice_id, stage) unique constraint
-      # the idempotency guarantee depends on. A production deployment of this service would put a
-      # migration tool in front of it; for a locally-run portfolio service that would be ceremony
-      # around a schema nothing else reads.
+      # Schema is generated from the mapping, including the (invoice_id, stage, channel) unique
+      # constraint the idempotency guarantee depends on. A production deployment of this service
+      # would put a migration tool in front of it; for a locally-run portfolio service that would be
+      # ceremony around a schema nothing else reads.
+      #
+      # Worth knowing: "update" adds, it never drops. A database created before the channel column
+      # joined that key still carries the old two-column constraint and will keep rejecting the
+      # second channel. Recreate it - docker compose down -v - rather than wondering why.
       ddl-auto: update
     open-in-view: false
     properties:

@@ -38,14 +38,14 @@ class TransactionalNotificationRequestWriter implements NotificationRequestWrite
         try {
             entityManager.persist(NotificationEntity.fromDomain(notification));
             entityManager.persist(OutboxEventEntity.fromDomain(event));
-            // Flushed explicitly so a violated (invoice_id, stage) constraint surfaces here, where
-            // it can be translated into a domain concept, rather than at commit time - by which
-            // point the caller has already been told the request succeeded.
+            // Flushed explicitly so a violated (invoice_id, stage, channel) constraint surfaces
+            // here, where it can be translated into a domain concept, rather than at commit time -
+            // by which point the caller has already been told the request succeeded.
             entityManager.flush();
         } catch (PersistenceException e) {
             if (isUniqueConstraintViolation(e)) {
                 throw new DuplicateNotificationException(
-                        notification.getInvoiceId(), notification.getStage(), e);
+                        notification.getInvoiceId(), notification.getStage(), notification.getChannel(), e);
             }
             throw e;
         }

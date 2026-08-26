@@ -23,7 +23,7 @@ public interface NotificationRequestWriter {
      * Persists {@code notification} and {@code event} in a single local transaction.
      *
      * @throws DuplicateNotificationException if a notification for the same
-     *     {@code (invoiceId, stage)} pair was committed concurrently
+     *     {@code (invoiceId, stage, channel)} triple was committed concurrently
      */
     Notification writeAtomically(Notification notification, OutboxEvent event);
 }

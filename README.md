@@ -15,7 +15,13 @@ stuck because of exactly that gap. This service closes it with a real outbox.
 
 | Endpoint | Purpose | Idempotency |
 |---|---|---|
-| `POST /notifications` `{customerId, invoiceId, channel, stage}` | Requests a notification | Unique on `(invoiceId, stage)` — a duplicate request returns the existing record instead of creating a second one |
+| `POST /notifications` `{customerId, invoiceId, channel, stage}` | Requests a notification | Unique on `(invoiceId, stage, channel)` — a duplicate request returns the existing record instead of creating a second one |
+
+Channel is part of that key, not decoration. A customer is notified on more than one channel at the
+same escalation stage — an email and an SMS for the same D+5 reminder — so keying on
+`(invoiceId, stage)` alone would classify the SMS as a retry of the email, answer `200`, and never
+dispatch it. Silently dropping a notification is precisely the failure this service exists to
+remove, so the narrower key would have reintroduced it in a quieter form.
 
 ## The fix, concretely
 

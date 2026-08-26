@@ -37,8 +37,10 @@ class NotificationController {
             summary = "Request a notification",
             description =
                     "Writes the notification and its outbox event in one local transaction and returns "
-                            + "immediately. Idempotent on (invoiceId, stage): a repeat request returns the "
-                            + "record that already exists rather than creating a second one or failing.")
+                            + "immediately. Idempotent on (invoiceId, stage, channel): a repeat request returns "
+                            + "the record that already exists rather than creating a second one or failing. "
+                            + "Channel is part of the key, so notifying the same escalation stage by both email "
+                            + "and SMS is two dispatches, not a duplicate.")
     @ApiResponses({
         @ApiResponse(responseCode = "202", description = "Accepted - the notification was recorded and will be dispatched"),
         @ApiResponse(responseCode = "200", description = "This invoice/stage was already requested; the existing record is returned"),

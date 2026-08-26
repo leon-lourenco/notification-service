@@ -74,10 +74,14 @@ abstract class AbstractIntegrationTest {
     }
 
     static String notificationRequestBody(long invoiceId, String stage, String recipient) {
+        return notificationRequestBody(invoiceId, stage, "EMAIL", recipient);
+    }
+
+    static String notificationRequestBody(long invoiceId, String stage, String channel, String recipient) {
         String recipientField = recipient == null ? "" : ", \"recipient\": \"%s\"".formatted(recipient);
         return """
-                {"customerId": 42, "invoiceId": %d, "channel": "EMAIL", "stage": "%s"%s}"""
-                .formatted(invoiceId, stage, recipientField);
+                {"customerId": 42, "invoiceId": %d, "channel": "%s", "stage": "%s"%s}"""
+                .formatted(invoiceId, channel, stage, recipientField);
     }
 
     /**

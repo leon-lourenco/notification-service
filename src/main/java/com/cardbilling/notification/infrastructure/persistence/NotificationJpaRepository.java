@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 interface NotificationJpaRepository extends JpaRepository<NotificationEntity, UUID> {
 
-    Optional<NotificationEntity> findByInvoiceIdAndStage(long invoiceId, Notification.Stage stage);
+    Optional<NotificationEntity> findByInvoiceIdAndStageAndChannel(
+            long invoiceId, Notification.Stage stage, Notification.Channel channel);
 }

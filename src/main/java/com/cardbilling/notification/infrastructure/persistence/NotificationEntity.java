@@ -17,17 +17,23 @@ import java.util.UUID;
  * stays free of JPA - which is what makes the ArchUnit rules in this repository mean something
  * rather than describe an aspiration.
  *
- * <p>The unique constraint on {@code (invoice_id, stage)} is the idempotency guarantee. Not a
- * convention, not a check the caller is trusted to perform: the database refuses a second row for a
- * stage already requested, so concurrent callers cannot both win.
+ * <p>The unique constraint on {@code (invoice_id, stage, channel)} is the idempotency guarantee. Not
+ * a convention, not a check the caller is trusted to perform: the database refuses a second row for
+ * a stage already requested on that channel, so concurrent callers cannot both win.
+ *
+ * <p>Channel belongs in the key. An escalation stage is reached once, but the monolith notified a
+ * customer on more than one channel at that stage - an email and an SMS for the same D+5 reminder.
+ * Keying on {@code (invoice_id, stage)} alone would make the second channel look like a retry of
+ * the first and silently drop it, which is a quieter version of exactly the bug this service exists
+ * to fix.
  */
 @Entity
 @Table(
         name = "notifications",
         uniqueConstraints =
                 @UniqueConstraint(
-                        name = "uk_notifications_invoice_stage",
-                        columnNames = {"invoice_id", "stage"}),
+                        name = "uk_notifications_invoice_stage_channel",
+                        columnNames = {"invoice_id", "stage", "channel"}),
         indexes = @Index(name = "idx_notifications_status", columnList = "status"))
 public class NotificationEntity {
 

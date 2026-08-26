@@ -46,13 +46,18 @@ public class RequestNotificationUseCase {
     }
 
     public NotificationRequestResult request(RequestNotificationCommand command) {
+        // Keyed on channel as well as invoice and stage: one escalation stage can legitimately be
+        // notified on more than one channel, so an SMS for a stage already emailed is a second
+        // dispatch rather than a retry of the first.
         Optional<Notification> existing =
-                notifications.findByInvoiceIdAndStage(command.invoiceId(), command.stage());
+                notifications.findByInvoiceIdAndStageAndChannel(
+                        command.invoiceId(), command.stage(), command.channel());
         if (existing.isPresent()) {
             log.debug(
-                    "Notification for invoice {} at stage {} already requested - returning existing record {}",
+                    "Notification for invoice {} at stage {} on {} already requested - returning existing record {}",
                     command.invoiceId(),
                     command.stage(),
+                    command.channel(),
                     existing.get().getId());
             return NotificationRequestResult.alreadyRequested(existing.get());
         }
@@ -70,21 +75,24 @@ public class RequestNotificationUseCase {
                     requestWriter.writeAtomically(
                             notification, OutboxEvent.notificationRequested(notification));
             log.info(
-                    "Accepted notification {} for invoice {} at stage {} - outbox event written in the same transaction",
+                    "Accepted notification {} for invoice {} at stage {} on {} - outbox event written in the same transaction",
                     saved.getId(),
                     saved.getInvoiceId(),
-                    saved.getStage());
+                    saved.getStage(),
+                    saved.getChannel());
             return NotificationRequestResult.accepted(saved);
         } catch (DuplicateNotificationException e) {
-            // Two callers raced for the same (invoiceId, stage) and the unique constraint settled
-            // it. That is the constraint doing its job, not a failure: re-read and answer with
-            // whatever the winner committed, which is what the idempotency contract promises.
+            // Two callers raced for the same (invoiceId, stage, channel) and the unique constraint
+            // settled it. That is the constraint doing its job, not a failure: re-read and answer
+            // with whatever the winner committed, which is what the idempotency contract promises.
             log.info(
-                    "Concurrent duplicate request for invoice {} at stage {} - returning the committed record",
+                    "Concurrent duplicate request for invoice {} at stage {} on {} - returning the committed record",
                     command.invoiceId(),
-                    command.stage());
+                    command.stage(),
+                    command.channel());
             return notifications
-                    .findByInvoiceIdAndStage(command.invoiceId(), command.stage())
+                    .findByInvoiceIdAndStageAndChannel(
+                            command.invoiceId(), command.stage(), command.channel())
                     .map(NotificationRequestResult::alreadyRequested)
                     .orElseThrow(() -> e);
         }

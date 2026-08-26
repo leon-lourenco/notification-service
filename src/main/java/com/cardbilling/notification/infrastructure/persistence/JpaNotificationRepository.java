@@ -22,8 +22,11 @@ class JpaNotificationRepository implements NotificationRepository {
     }
 
     @Override
-    public Optional<Notification> findByInvoiceIdAndStage(long invoiceId, Notification.Stage stage) {
-        return notifications.findByInvoiceIdAndStage(invoiceId, stage).map(NotificationEntity::toDomain);
+    public Optional<Notification> findByInvoiceIdAndStageAndChannel(
+            long invoiceId, Notification.Stage stage, Notification.Channel channel) {
+        return notifications
+                .findByInvoiceIdAndStageAndChannel(invoiceId, stage, channel)
+                .map(NotificationEntity::toDomain);
     }
 
     @Override
