@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Version catalog dependency updates land as PRs against gradle/libs.versions.toml.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # No "docker" entry - docker-compose.yml pins its own image tags directly; this repo doesn't
+  # build a custom image.
+
+  # Keeps the actions this repo's own workflow pins current. The reusable workflows living in
+  # ci-templates have their own Dependabot config over there - this only covers what's pinned
+  # directly in this repo's own workflow file.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
