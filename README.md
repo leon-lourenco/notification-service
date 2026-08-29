@@ -143,3 +143,10 @@ Final state, after three POSTs of which one was a deliberate repeat:
 ```
 
 Two rows, not three: the repeated request returned `200` with the existing record and wrote nothing.
+
+**At platform scale**, the same outbox handled 298 real requests in one pass — every notification
+`collections-service`'s `/collections/run` requested for 149 genuinely overdue invoices, two
+channels each — all landing `SENT`, confirmed against this service's own database, not the
+caller's report of success. See
+[`collections-service`](https://github.com/leon-lourenco/collections-service#resilience--the-evidence)'s
+README for the resilience run that produced them.
