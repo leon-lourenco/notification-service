@@ -6,3 +6,11 @@ plugins {
 }
 
 rootProject.name = "notification-service"
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        create("libs") {
+            from(files("card-billing-shared/versions/libs.versions.toml"))
+        }
+    }
+}

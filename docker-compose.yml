@@ -46,9 +46,8 @@ services:
       retries: 30
       start_period: 15s
 
-  # Stopgap: the card-billing realm is meant to live in the card-billing-shared submodule and be
-  # shared by all four services. Until that repository exists, each service imports its own copy of
-  # the realm so it stays runnable on its own - which ARCHITECTURE.md requires of every service.
+  # The card-billing realm, from the card-billing-shared submodule - the same copy all four
+  # services import, so this service still stays runnable on its own.
   keycloak:
     image: quay.io/keycloak/keycloak:26.7
     command:
@@ -66,7 +65,7 @@ services:
       KC_HOSTNAME: http://localhost:8090
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "false"
     volumes:
-      - ./keycloak:/opt/keycloak/data/import:ro
+      - ./card-billing-shared/keycloak:/opt/keycloak/data/import:ro
     ports:
       - "8090:8090"
     healthcheck:

@@ -22,9 +22,11 @@ jobs:
     uses: leon-lourenco/ci-templates/.github/workflows/gradle-build-test.yml@master
     with:
       java-version: "21"
+      submodules: true
 
   codeql:
     uses: leon-lourenco/ci-templates/.github/workflows/codeql-java.yml@master
     with:
       build-tool: gradle
       java-version: "21"
+      submodules: true

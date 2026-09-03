@@ -1,0 +1,3 @@
+[submodule "card-billing-shared"]
+	path = card-billing-shared
+	url = https://github.com/leon-lourenco/card-billing-shared.git

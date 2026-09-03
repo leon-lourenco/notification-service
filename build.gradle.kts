@@ -1,7 +1,7 @@
 plugins {
     java
-    id("org.springframework.boot") version "4.1.1"
-    id("io.spring.dependency-management") version "1.1.7"
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
 }
 
 group = "com.cardbilling"
@@ -33,18 +33,19 @@ dependencies {
     // into spring-boot-kafka, which only the starter pulls in. Declaring spring-kafka alone
     // compiles fine and then fails at runtime with no KafkaTemplate bean.
     implementation("org.springframework.boot:spring-boot-starter-kafka")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
     // Redpanda rather than the generic Kafka module: docker-compose.yml runs Redpanda, so the
     // integration test exercises the same broker implementation the service is actually run
-    // against locally, not a different one that merely speaks the same protocol.
+    // against locally, not a different one that merely speaks the same protocol. Not in the
+    // shared catalog - this is the only service that needs it.
     testImplementation("org.testcontainers:testcontainers-redpanda")
-    testImplementation("com.tngtech.archunit:archunit-junit5:1.5.0")
+    testImplementation(libs.archunit.junit5)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
